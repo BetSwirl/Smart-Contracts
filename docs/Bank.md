@@ -134,6 +134,23 @@ Deposit funds in the bank to allow gamers to win more. It is also setting the ne
 | token | address | Address of the token.
 | amount | uint256 | Number of tokens.
 
+### gasToken_USD_priceFeed
+
+```solidity
+function gasToken_USD_priceFeed() external view returns (contract AggregatorV3Interface)
+```
+
+Gas token / USD price feed.
+
+
+
+
+#### Returns
+
+| Name | Type | Description |
+|---|---|---|
+| _0 | contract AggregatorV3Interface | undefined
+
 ### getBalance
 
 ```solidity
@@ -156,6 +173,28 @@ Gets the token&#39;s balance. The token&#39;s house edge allocation amounts are 
 |---|---|---|
 | _0 | uint256 | The amount of token available for profits.
 
+### getBetTokenPriceQuoteFromGasToken
+
+```solidity
+function getBetTokenPriceQuoteFromGasToken(address betToken) external view returns (int256)
+```
+
+Derives the bet token price in gas token price.
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| betToken | address | Address of the token.
+
+#### Returns
+
+| Name | Type | Description |
+|---|---|---|
+| _0 | int256 | Gas Token / Bet token price.
+
 ### getDividends
 
 ```solidity
@@ -174,13 +213,35 @@ Get the available tokens dividends amounts.
 | _0 | address[] | The list of tokens addresses.
 | _1 | uint256[] | The list of tokens&#39; amounts harvested.
 
+### getGasTokenQuotePriceFromToken
+
+```solidity
+function getGasTokenQuotePriceFromToken(address betToken) external view returns (int256)
+```
+
+Derives the gas token price in bet token price.
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| betToken | address | Address of the bet token.
+
+#### Returns
+
+| Name | Type | Description |
+|---|---|---|
+| _0 | int256 | Bet token / Gas token price.
+
 ### getMaxBetAmount
 
 ```solidity
-function getMaxBetAmount(address token, uint256 multiplier) external view returns (uint256)
+function getMaxBetAmount(address tokenAddress, uint256 multiplier) external view returns (uint256)
 ```
 
-Calculates the max bet amount based on the token balance, the balance risk, and the game multiplier.
+Calculates the max bet amount based on the token balance, the balance risk, and the game multiplier.If the token is meant to be swapped from gas token, use the gas token balance.
 
 *The multiplier should be at least 10000.*
 
@@ -188,7 +249,7 @@ Calculates the max bet amount based on the token balance, the balance risk, and 
 
 | Name | Type | Description |
 |---|---|---|
-| token | address | Address of the token.
+| tokenAddress | address | Address of the token.
 | multiplier | uint256 | The bet amount leverage determines the user&#39;s profit amount. 10000 = 100% = no profit.
 
 #### Returns
@@ -218,6 +279,28 @@ function getRoleAdmin(bytes32 role) external view returns (bytes32)
 | Name | Type | Description |
 |---|---|---|
 | _0 | bytes32 | undefined
+
+### getTokenSwapRoutePathLength
+
+```solidity
+function getTokenSwapRoutePathLength(address token) external view returns (uint256)
+```
+
+Get the token swap route path.
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| token | address | Address of the token.
+
+#### Returns
+
+| Name | Type | Description |
+|---|---|---|
+| _0 | uint256 | Length of the route path.
 
 ### getTokens
 
@@ -297,7 +380,7 @@ function hasRole(bytes32 role, address account) external view returns (bool)
 ### isAllowedToken
 
 ```solidity
-function isAllowedToken(address token) external view returns (bool)
+function isAllowedToken(address tokenAddress) external view returns (bool)
 ```
 
 Gets the token&#39;s allow status used on the games smart contracts.
@@ -308,7 +391,7 @@ Gets the token&#39;s allow status used on the games smart contracts.
 
 | Name | Type | Description |
 |---|---|---|
-| token | address | Address of the token.
+| tokenAddress | address | Address of the token.
 
 #### Returns
 
@@ -352,7 +435,7 @@ Manages the balance overflow.When the bank overflow threshold amount is reached 
 ### payout
 
 ```solidity
-function payout(address payable user, address token, uint256 profit, uint256 fees) external payable
+function payout(address payable user, address tokenAddress, uint256 profit, uint256 fees) external payable returns (uint256 swappedTokenOutAmount)
 ```
 
 Payouts a winning bet, and allocate the house edge fee.
@@ -364,9 +447,15 @@ Payouts a winning bet, and allocate the house edge fee.
 | Name | Type | Description |
 |---|---|---|
 | user | address payable | Address of the gamer.
-| token | address | Address of the token.
+| tokenAddress | address | Address of the token.
 | profit | uint256 | Number of tokens to be sent to the gamer.
 | fees | uint256 | Bet amount and bet profit fees amount.
+
+#### Returns
+
+| Name | Type | Description |
+|---|---|---|
+| swappedTokenOutAmount | uint256 | Amount of token received from the swap.
 
 ### performUpkeep
 
@@ -488,6 +577,22 @@ Sets the new token balance risk.
 | token | address | Address of the token.
 | balanceRisk | uint16 | Risk rate.
 
+### setGasToken_USD_priceFeed
+
+```solidity
+function setGasToken_USD_priceFeed(contract AggregatorV3Interface _gasToken_USD_priceFeed) external nonpayable
+```
+
+Changes the gas token price feed.
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| _gasToken_USD_priceFeed | contract AggregatorV3Interface | Address of Chainlink&#39;s Gas Token / USD price feed.
+
 ### setHouseEdgeSplit
 
 ```solidity
@@ -558,6 +663,22 @@ Sets the new referral program.
 |---|---|---|
 | _referralProgram | contract IReferral | The referral program address.
 
+### setSwapRouter
+
+```solidity
+function setSwapRouter(contract ISwapRouter _swapRouter) external nonpayable
+```
+
+Changes the swap router.
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| _swapRouter | contract ISwapRouter | Address of the DEX router.
+
 ### setTeamWallet
 
 ```solidity
@@ -591,6 +712,57 @@ Changes the token&#39;s partner address.
 | token | address | Address of the token.
 | partner | address | Address of the partner.
 
+### setTokenPriceFeed
+
+```solidity
+function setTokenPriceFeed(address token, contract AggregatorV3Interface tokenPriceFeed) external nonpayable
+```
+
+Changes the token&#39;s price feed.
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| token | address | Address of the token.
+| tokenPriceFeed | contract AggregatorV3Interface | Address of Chainlink&#39;s Token / USD price feed.
+
+### setTokenSwapIt
+
+```solidity
+function setTokenSwapIt(address token, bool swapIt) external nonpayable
+```
+
+Set whether the token should be swapped.
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| token | address | Address of the token.
+| swapIt | bool | Whether the token should be swapped.
+
+### setTokenSwapRoutePath
+
+```solidity
+function setTokenSwapRoutePath(address token, address[] path) external nonpayable
+```
+
+Changes the token&#39;s swap route path.
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| token | address | Address of the token.
+| path | address[] | Intermediate pairs to trade through.
+
 ### supportsInterface
 
 ```solidity
@@ -613,6 +785,46 @@ function supportsInterface(bytes4 interfaceId) external view returns (bool)
 |---|---|---|
 | _0 | bool | undefined
 
+### swapRoutePaths
+
+```solidity
+function swapRoutePaths(address, uint256) external view returns (address)
+```
+
+Maps tokens addresses to the swap route path, excluding the token out.
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| _0 | address | undefined
+| _1 | uint256 | undefined
+
+#### Returns
+
+| Name | Type | Description |
+|---|---|---|
+| _0 | address | undefined
+
+### swapRouter
+
+```solidity
+function swapRouter() external view returns (contract ISwapRouter)
+```
+
+Swap router address
+
+
+
+
+#### Returns
+
+| Name | Type | Description |
+|---|---|---|
+| _0 | contract ISwapRouter | undefined
+
 ### teamWallet
 
 ```solidity
@@ -633,7 +845,7 @@ Team wallet.
 ### tokens
 
 ```solidity
-function tokens(address) external view returns (bool allowed, uint16 balanceRisk, address partner, struct Bank.HouseEdgeSplit houseEdgeSplit, uint256 balanceReference, struct Bank.BalanceOverflow balanceOverflow)
+function tokens(address) external view returns (bool allowed, uint16 balanceRisk, address partner, struct Bank.HouseEdgeSplit houseEdgeSplit, uint256 balanceReference, struct Bank.BalanceOverflow balanceOverflow, bool swapIt)
 ```
 
 Maps tokens addresses to token configuration.
@@ -656,6 +868,7 @@ Maps tokens addresses to token configuration.
 | houseEdgeSplit | Bank.HouseEdgeSplit | undefined
 | balanceReference | uint256 | undefined
 | balanceOverflow | Bank.BalanceOverflow | undefined
+| swapIt | bool | undefined
 
 ### tokensCount
 
@@ -695,6 +908,28 @@ Maps tokens indexes to token address.
 | Name | Type | Description |
 |---|---|---|
 | _0 | address | undefined
+
+### tokensPriceFeed
+
+```solidity
+function tokensPriceFeed(address) external view returns (contract AggregatorV3Interface)
+```
+
+Maps tokens addresses to the USD price feed.
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| _0 | address | undefined
+
+#### Returns
+
+| Name | Type | Description |
+|---|---|---|
+| _0 | contract AggregatorV3Interface | undefined
 
 ### treasury
 
@@ -837,6 +1072,24 @@ Emitted after the token&#39;s bank overflow amount is distributed to the treasur
 | amountToTreasury  | uint256 | The number of tokens sent to the treasury. |
 | amountToTeam  | uint256 | The number of tokens sent to the team. |
 
+### BetTokenSwap
+
+```solidity
+event BetTokenSwap(address indexed token, uint256 betTokenAmountIn, uint256 gasTokenAmountOut)
+```
+
+Emitted after the bet token swap.
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| token `indexed` | address | undefined |
+| betTokenAmountIn  | uint256 | undefined |
+| gasTokenAmountOut  | uint256 | undefined |
+
 ### CashIn
 
 ```solidity
@@ -889,6 +1142,24 @@ Emitted after the token&#39;s referral allocation is distributed.
 | token `indexed` | address | Address of the token. |
 | referralProgram  | address | The address of the Referral Program contract. |
 | referralAmount  | uint256 | The number of tokens sent. |
+
+### GasTokenSwap
+
+```solidity
+event GasTokenSwap(address indexed token, uint256 gasTokenAmountIn, uint256 betTokenAmountOut)
+```
+
+Emitted after the gas token swap.
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| token `indexed` | address | undefined |
+| gasTokenAmountIn  | uint256 | undefined |
+| betTokenAmountOut  | uint256 | undefined |
 
 ### HarvestDividend
 
@@ -1084,6 +1355,22 @@ Emitted after the balance risk is set.
 | token `indexed` | address | undefined |
 | balanceRisk  | uint16 | Rate defining the balance risk. |
 
+### SetGasToken_USD_priceFeed
+
+```solidity
+event SetGasToken_USD_priceFeed(address gasToken_USD_priceFeed)
+```
+
+Emitted after the Gas token/USD price feed is set.
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| gasToken_USD_priceFeed  | address | undefined |
+
 ### SetKeeperRegistry
 
 ```solidity
@@ -1132,6 +1419,22 @@ Emitted after the referral program is set.
 | Name | Type | Description |
 |---|---|---|
 | referralProgram  | address | The referral program address. |
+
+### SetSwapRouter
+
+```solidity
+event SetSwapRouter(address router)
+```
+
+Emitted after the swap router is set.
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| router  | address | undefined |
 
 ### SetTeamWallet
 
@@ -1186,6 +1489,56 @@ Emitted after a token partner is set.
 |---|---|---|
 | token `indexed` | address | Address of the token. |
 | partner  | address | Address of the partner. |
+
+### SetTokenPriceFeed
+
+```solidity
+event SetTokenPriceFeed(address tokenPriceFeed)
+```
+
+Emitted after the token&#39;s price feed is set.
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| tokenPriceFeed  | address | undefined |
+
+### SetTokenSwapIt
+
+```solidity
+event SetTokenSwapIt(address indexed token, bool swapIt)
+```
+
+Emitted after the bet amount is collected from the game smart contract.
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| token `indexed` | address | Address of the token. |
+| swapIt  | bool | Whether the token should be swapped. |
+
+### SetTokenSwapRoutePath
+
+```solidity
+event SetTokenSwapRoutePath(address indexed token, address[] path)
+```
+
+Emitted after the token&#39;s swap route path is set.
+
+
+
+#### Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| token `indexed` | address | undefined |
+| path  | address[] | undefined |
 
 ### Withdraw
 
@@ -1272,5 +1625,27 @@ Reverting error when setting the house edge allocations, but the sum isn&#39;t 1
 | Name | Type | Description |
 |---|---|---|
 | splitSum | uint16 | Sum of the house edge allocations rates. |
+
+### WrongTokenPriceFeeds
+
+```solidity
+error WrongTokenPriceFeeds()
+```
+
+Reverting error when setting wrong token&#39;s price feed.
+
+
+
+
+### WrongTokenSwapRoutePath
+
+```solidity
+error WrongTokenSwapRoutePath()
+```
+
+Reverting error when setting wrong token&#39;s swap route path.
+
+
+
 
 

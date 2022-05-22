@@ -15,26 +15,20 @@ interface IBank {
     /// @param token Address of the token.
     /// @param profit Number of tokens to be sent to the gamer.
     /// @param fees Bet amount and bet profit fees amount.
+    /// @return swappedTokenOutAmount Amount of token received from the swap.
     function payout(
         address payable user,
         address token,
         uint256 profit,
         uint256 fees
-    ) external payable;
+    ) external payable returns (uint256 swappedTokenOutAmount);
 
-    /// @notice Accounts a loss bet, allocate the house edge fee, and manage the balance overflow.
+    /// @notice Accounts a loss bet, and manage the balance overflow.
     /// @dev In case of an ERC20, the bet amount should be transfered prior to this tx.
     /// @dev In case of the gas token, the bet amount is sent along with this tx.
-    /// @param user Address of the gamer.
     /// @param tokenAddress Address of the token.
     /// @param amount Loss bet amount.
-    /// @param fees Bet amount fees amount.
-    function cashIn(
-        address user,
-        address tokenAddress,
-        uint256 amount,
-        uint256 fees
-    ) external payable;
+    function cashIn(address tokenAddress, uint256 amount) external payable;
 
     /// @notice Calculates the max bet amount based on the token balance, the balance risk, and the game multiplier.
     /// @param token Address of the token.
@@ -45,4 +39,19 @@ interface IBank {
         external
         view
         returns (uint256);
+
+    /// @notice Harvests tokens dividends.
+    /// @return tokens The list of tokens addresses.
+    /// @return amounts The list of tokens' amounts harvested.
+    function harvestDividends()
+        external
+        returns (address[] memory tokens, uint256[] memory amounts);
+
+    /// @notice Get the available tokens dividends amounts.
+    /// @return tokens The list of tokens addresses.
+    /// @return amounts The list of tokens' amounts harvested.
+    function getDividends()
+        external
+        view
+        returns (address[] memory tokens, uint256[] memory amounts);
 }

@@ -8,6 +8,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@chainlink/contracts/src/v0.8/KeeperCompatible.sol";
 
+import {Swapper, ISwapRouter, AggregatorV3Interface} from "./Swapper.sol";
 import {IReferral} from "./IReferral.sol";
 
 // import "hardhat/console.sol";
@@ -23,7 +24,7 @@ import {IReferral} from "./IReferral.sol";
 /// The admin role is transfered to a Timelock that execute administrative tasks,
 /// only the Games could payout the bet profit from the bank, and send the loss bet amount to the bank.
 /// @dev All rates are in basis point.
-contract Bank is AccessControl, KeeperCompatibleInterface {
+contract Bank is AccessControl, KeeperCompatibleInterface, Swapper {
     using SafeERC20 for IERC20;
 
     /// @notice Enum to identify the Chainlink Upkeep registration.
@@ -79,6 +80,7 @@ contract Bank is AccessControl, KeeperCompatibleInterface {
     /// @param houseEdgeSplit House edge allocations.
     /// @param balanceReference Balance reference used to manage the bank overflow.
     /// @param balanceOverflow Balance overflow management configuration.
+    /// @param swapIt Whether the token should be swapped.
     struct Token {
         bool allowed;
         uint16 balanceRisk;
@@ -86,6 +88,7 @@ contract Bank is AccessControl, KeeperCompatibleInterface {
         HouseEdgeSplit houseEdgeSplit;
         uint256 balanceReference;
         BalanceOverflow balanceOverflow;
+        bool swapIt;
     }
 
     /// @notice Token's metadata struct. It contains additional information from the ERC20 token.
@@ -253,6 +256,11 @@ contract Bank is AccessControl, KeeperCompatibleInterface {
     /// @param balanceReference New balance reference used to determine the bank overflow.
     event SetBalanceReference(address indexed token, uint256 balanceReference);
 
+    /// @notice Emitted after the bet amount is collected from the game smart contract.
+    /// @param token Address of the token.
+    /// @param swapIt Whether the token should be swapped.
+    event SetTokenSwapIt(address indexed token, bool swapIt);
+
     /// @notice Emitted after the token's house edge is allocated.
     /// @param token Address of the token.
     /// @param dividend The number of tokens allocated as staking rewards.
@@ -314,9 +322,11 @@ contract Bank is AccessControl, KeeperCompatibleInterface {
     constructor(
         address payable treasuryAddress,
         address payable teamWalletAddress,
-        IReferral referralProgramAddress
-    ) {
-        // The ownership should then be transfered to the Timelock.
+        IReferral referralProgramAddress,
+        ISwapRouter swapRouter,
+        AggregatorV3Interface gasToken_USD_priceFeed
+    ) Swapper(swapRouter, gasToken_USD_priceFeed) {
+        // The ownership should then be transfered to the multi-sig.
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
 
         treasury = treasuryAddress;
@@ -441,6 +451,21 @@ contract Bank is AccessControl, KeeperCompatibleInterface {
         emit SetAllowedToken(token, allowed);
     }
 
+    /// @notice Set whether the token should be swapped.
+    /// @param token Address of the token.
+    /// @param swapIt Whether the token should be swapped.
+    function setTokenSwapIt(address token, bool swapIt)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        tokens[token].swapIt = swapIt;
+        if (!swapIt) {
+            _setBalanceReference(token, getBalance(token));
+        }
+        _toggleTokenSwapRouterApproval(token);
+        emit SetTokenSwapIt(token, swapIt);
+    }
+    
     /// @notice Changes the token's Upkeep min transfer amount.
     /// @param token Address of the token.
     /// @param minPartnerTransferAmount Minimum amount of token to allow transfer.
@@ -584,19 +609,25 @@ contract Bank is AccessControl, KeeperCompatibleInterface {
 
     /// @notice Payouts a winning bet, and allocate the house edge fee.
     /// @param user Address of the gamer.
-    /// @param token Address of the token.
+    /// @param tokenAddress Address of the token.
     /// @param profit Number of tokens to be sent to the gamer.
     /// @param fees Bet amount and bet profit fees amount.
+    /// @return swappedTokenOutAmount Amount of token received from the swap.
     function payout(
         address payable user,
-        address token,
+        address tokenAddress,
         uint256 profit,
         uint256 fees
-    ) external payable onlyRole(GAME_ROLE) {
+    )
+        external
+        payable
+        onlyRole(GAME_ROLE)
+        returns (uint256 swappedTokenOutAmount)
+    {
         // Splits the house edge fees and allocates them as dividends, for referrers, to the partner, the treasury, and team.
         // If the user has no referrer, the referral allocation is allocated evenly among the other allocations.
         {
-            HouseEdgeSplit storage tokenHouseEdge = tokens[token]
+            HouseEdgeSplit storage tokenHouseEdge = tokens[tokenAddress]
                 .houseEdgeSplit;
 
             // Calculate the referral allocation
@@ -606,7 +637,7 @@ contract Bank is AccessControl, KeeperCompatibleInterface {
             if (referralAllocation != 0) {
                 referralAmount = referralProgram.payReferral(
                     user,
-                    token,
+                    tokenAddress,
                     referralAllocation
                 );
                 referralAllocation -= referralAmount;
@@ -660,7 +691,7 @@ contract Bank is AccessControl, KeeperCompatibleInterface {
                 if (keeperRegistry == address(0)) {
                     _safeTransfer(
                         payable(address(referralProgram)),
-                        token,
+                        tokenAddress,
                         referralAmount
                     );
                 } else {
@@ -669,7 +700,7 @@ contract Bank is AccessControl, KeeperCompatibleInterface {
             }
 
             emit AllocateHouseEdgeAmount(
-                token,
+                tokenAddress,
                 dividendAmount,
                 referralAmount,
                 partnerAmount,
@@ -679,8 +710,17 @@ contract Bank is AccessControl, KeeperCompatibleInterface {
         }
 
         // Pay the user
-        _safeTransfer(user, token, profit);
-        emit Payout(token, getBalance(token), profit);
+        if (tokens[tokenAddress].swapIt) {
+            (
+                uint256 gasTokenInAmount,
+                uint256 tokenOutAmount
+            ) = _swapExactGasTokenForTokens(user, tokenAddress, profit);
+            swappedTokenOutAmount = tokenOutAmount;
+            emit Payout(address(0), getBalance(address(0)), gasTokenInAmount);
+        } else {
+            _safeTransfer(user, tokenAddress, profit);
+            emit Payout(tokenAddress, getBalance(tokenAddress), profit);
+        }
     }
 
     /// @notice Accounts a loss bet.
@@ -693,11 +733,21 @@ contract Bank is AccessControl, KeeperCompatibleInterface {
         payable
         onlyRole(GAME_ROLE)
     {
-        emit CashIn(
-            tokenAddress,
-            getBalance(tokenAddress),
-            _isGasToken(tokenAddress) ? msg.value : amount
-        );
+        if (tokens[tokenAddress].swapIt) {
+            (, uint256 amountIn) = _swapExactTokensForGasToken(tokenAddress, amount);
+            address gasToken = address(0);
+            emit CashIn(
+                gasToken,
+                getBalance(gasToken),
+                amountIn
+            );
+        } else {
+            emit CashIn(
+                tokenAddress,
+                getBalance(tokenAddress),
+                _isGasToken(tokenAddress) ? msg.value : amount
+            );
+        }
     }
 
     /// @notice Executed by Chainlink Keepers when `upkeepNeeded` is true.
@@ -758,23 +808,40 @@ contract Bank is AccessControl, KeeperCompatibleInterface {
     }
 
     /// @notice Calculates the max bet amount based on the token balance, the balance risk, and the game multiplier.
-    /// @param token Address of the token.
+    /// @notice If the token is meant to be swapped from gas token, use the gas token balance.
+    /// @param tokenAddress Address of the token.
     /// @param multiplier The bet amount leverage determines the user's profit amount. 10000 = 100% = no profit.
     /// @return Maximum bet amount for the token.
     /// @dev The multiplier should be at least 10000.
-    function getMaxBetAmount(address token, uint256 multiplier)
+    function getMaxBetAmount(address tokenAddress, uint256 multiplier)
         external
         view
         returns (uint256)
     {
-        return (getBalance(token) * tokens[token].balanceRisk) / multiplier;
+        Token memory token = tokens[tokenAddress];
+        if (token.swapIt) {
+            address gasTokenAddress = address(0);
+            uint256 gasTokenMaxBetAmount = (getBalance(gasTokenAddress) *
+                tokens[gasTokenAddress].balanceRisk) / multiplier;
+            uint256 tokenMaxBetAmount = gasTokenMaxBetAmount *
+                uint256(getBetTokenPriceQuoteFromGasToken(tokenAddress));
+            return
+                tokenMaxBetAmount / 10**IERC20Metadata(tokenAddress).decimals();
+        } else {
+            return (getBalance(tokenAddress) * token.balanceRisk) / multiplier;
+        }
     }
 
     /// @notice Gets the token's allow status used on the games smart contracts.
-    /// @param token Address of the token.
+    /// @param tokenAddress Address of the token.
     /// @return Whether the token is enabled for bets.
-    function isAllowedToken(address token) external view returns (bool) {
-        return tokens[token].allowed;
+    function isAllowedToken(address tokenAddress) external view returns (bool) {
+        Token memory token = tokens[tokenAddress];
+        if (token.swapIt) {
+            return token.allowed && address(swapRouter) != address(0);
+        } else {
+            return token.allowed;
+        }
     }
 
     /// @notice Runs by Chainlink Keepers at every block to determine if `performUpkeep` should be called.

@@ -318,8 +318,12 @@ abstract contract Game is Ownable, Pausable, Multicall, VRFConsumerBaseV2 {
                     token,
                     profitPayout,
                     fee
-                )
-            {} catch Error(string memory reason) {
+                ) returns (uint256 swappedTokenOutAmount)
+            {
+                if (swappedTokenOutAmount != 0) {
+                    payout = swappedTokenOutAmount + betAmountPayout;
+                }
+            } catch Error(string memory reason) {
                 emit BetProfitTransferFail(bet.id, profitPayout, reason);
             }
         } else {
@@ -332,12 +336,7 @@ abstract contract Game is Ownable, Pausable, Multicall, VRFConsumerBaseV2 {
                 }
             }
             try
-                bank.cashIn{value: isGasToken ? betAmount : 0}(
-                    user,
-                    token,
-                    betAmount,
-                    _getFees(token, betAmount)
-                )
+                bank.cashIn{value: isGasToken ? betAmount : 0}(token, betAmount)
             {} catch Error(string memory reason) {
                 emit BankCashInFail(bet.id, betAmount, reason);
             }
