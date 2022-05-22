@@ -9,6 +9,14 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 // import "hardhat/console.sol";
 
+interface IEPNSComV1 {
+    function sendNotification(
+        address _channel,
+        address _recipient,
+        bytes memory _identity
+    ) external;
+}
+
 /// @title Multi-level referral program
 /// @author Thundercore, customized by Romuald Hog
 /// @dev All rates are in basis point.
@@ -57,6 +65,17 @@ contract Referral is AccessControl, Pausable {
 
     /// @notice Role associated to the Bank smart contracts.
     bytes32 public constant BANK_ROLE = keccak256("BANK_ROLE");
+
+    /// @notice IPNS Communicator used for Referrer notifications.
+    address public EPNSCommunicator =
+        0x87da9Af1899ad477C67FeA31ce89c1d2435c77DC;
+
+    /// @notice IPNS Communicator used for Referrer notifications.
+    address public EPNSChannel = 0x2C305888a456E7004663bc12A74395E637eABCBc;
+
+    /// @notice Referrer notifications CIDs from IPFS.
+    string public EPNSNotificationCID =
+        "QmPV3mMQCKYf9127mtpq1gftVw3tEdn3khptvWCFYH1tGq";
 
     /// @notice Emitted after the configuration is set.
     /// @param secondsUntilInactive The seconds that a user does not update will be seen as inactive.
@@ -300,6 +319,12 @@ contract Referral is AccessControl, Pausable {
                     _credits[parent][token] += credit;
 
                     emit AddReferralCredit(parent, token, credit, i + 1);
+
+                    IEPNSComV1(EPNSCommunicator).sendNotification(
+                        EPNSChannel,
+                        parent,
+                        abi.encodePacked("3", "+", EPNSNotificationCID)
+                    );
                 }
 
                 userAccount = parentAccount;

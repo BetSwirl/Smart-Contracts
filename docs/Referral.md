@@ -44,6 +44,57 @@ function DEFAULT_ADMIN_ROLE() external view returns (bytes32)
 |---|---|---|
 | _0 | bytes32 | undefined
 
+### EPNSChannel
+
+```solidity
+function EPNSChannel() external view returns (address)
+```
+
+IPNS Communicator used for Referrer notifications.
+
+
+
+
+#### Returns
+
+| Name | Type | Description |
+|---|---|---|
+| _0 | address | undefined
+
+### EPNSCommunicator
+
+```solidity
+function EPNSCommunicator() external view returns (address)
+```
+
+IPNS Communicator used for Referrer notifications.
+
+
+
+
+#### Returns
+
+| Name | Type | Description |
+|---|---|---|
+| _0 | address | undefined
+
+### EPNSNotificationCID
+
+```solidity
+function EPNSNotificationCID() external view returns (string)
+```
+
+Referrer notifications CIDs from IPFS.
+
+
+
+
+#### Returns
+
+| Name | Type | Description |
+|---|---|---|
+| _0 | string | undefined
+
 ### GAME_ROLE
 
 ```solidity
